@@ -1,0 +1,2082 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Picnic Trip Manager - Login</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(229, 231, 235, 0.8);
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+        }
+        .gradient-bg-2 {
+            background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%);
+        }
+        .gradient-bg-3 {
+            background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+        }
+        .gradient-bg-4 {
+            background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
+        }
+        .professional-card {
+            transition: all 0.3s ease;
+            border: 1px solid #e5e7eb;
+        }
+        .professional-card:hover {
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+        .settlement-card {
+            transition: all 0.2s ease;
+        }
+        .settlement-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+        }
+        .auth-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        
+        const currencies = [
+            { code: 'USD', symbol: '$', name: 'US Dollar' },
+            { code: 'EUR', symbol: '€', name: 'Euro' },
+            { code: 'GBP', symbol: '£', name: 'British Pound' },
+            { code: 'SAR', symbol: 'SAR ', name: 'Saudi Riyal' },
+            { code: 'AED', symbol: 'AED ', name: 'UAE Dirham' },
+            { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
+            { code: 'JPY', symbol: '¥', name: 'Japanese Yen' },
+            { code: 'CNY', symbol: '¥', name: 'Chinese Yuan' },
+            { code: 'AUD', symbol: 'A$', name: 'Australian Dollar' },
+            { code: 'CAD', symbol: 'C$', name: 'Canadian Dollar' }
+        ];
+
+        // Authentication Component
+        const AuthPage = ({ onLogin }) => {
+            const [authMode, setAuthMode] = useState('login'); // 'login', 'signup', 'reset'
+            const [formData, setFormData] = useState({
+                email: '',
+                fullName: '',
+                username: '',
+                password: '',
+                confirmPassword: '',
+                securityQuestion: '',
+                securityAnswer: ''
+            });
+            const [error, setError] = useState('');
+            const [success, setSuccess] = useState('');
+
+            const handleInputChange = (e) => {
+                setFormData({
+                    ...formData,
+                    [e.target.name]: e.target.value
+                });
+                setError('');
+            };
+
+            const validateEmail = (email) => {
+                const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                return re.test(email);
+            };
+
+            const handleSignup = (e) => {
+                e.preventDefault();
+                setError('');
+                setSuccess('');
+
+                // Validation
+                if (!formData.email || !formData.fullName || !formData.username || !formData.password || !formData.confirmPassword) {
+                    setError('❌ All fields are required. Please fill in all information.');
+                    return;
+                }
+
+                if (!validateEmail(formData.email)) {
+                    setError('❌ Please enter a valid email address (e.g., example@email.com)');
+                    return;
+                }
+
+                if (formData.username.length < 4) {
+                    setError('❌ Username must be at least 4 characters long');
+                    return;
+                }
+
+                if (formData.password.length < 6) {
+                    setError('❌ Password must be at least 6 characters long for security');
+                    return;
+                }
+
+                if (formData.password !== formData.confirmPassword) {
+                    setError('❌ Passwords do not match. Please re-enter your password.');
+                    return;
+                }
+
+                if (!formData.securityQuestion || !formData.securityAnswer) {
+                    setError('❌ Please select a security question and provide an answer for password recovery');
+                    return;
+                }
+
+                if (formData.securityAnswer.length < 2) {
+                    setError('❌ Security answer must be at least 2 characters');
+                    return;
+                }
+
+                // Check if username already exists
+                const users = JSON.parse(localStorage.getItem('picnicUsers') || '[]');
+                if (users.find(u => u.username === formData.username)) {
+                    setError('❌ Username "' + formData.username + '" is already taken. Please choose a different username.');
+                    return;
+                }
+
+                if (users.find(u => u.email === formData.email)) {
+                    setError('❌ Email address "' + formData.email + '" is already registered. Please use a different email or try logging in.');
+                    return;
+                }
+
+                // Create new user
+                const newUser = {
+                    id: Date.now(),
+                    email: formData.email,
+                    fullName: formData.fullName,
+                    username: formData.username,
+                    password: formData.password, // In real app, this should be hashed
+                    securityQuestion: formData.securityQuestion,
+                    securityAnswer: formData.securityAnswer.toLowerCase(),
+                    createdAt: new Date().toISOString()
+                };
+
+                users.push(newUser);
+                localStorage.setItem('picnicUsers', JSON.stringify(users));
+
+                setSuccess('✅ SUCCESS! Account created for ' + formData.fullName + '. Redirecting to login...');
+                setTimeout(() => {
+                    setAuthMode('login');
+                    setFormData({
+                        email: '',
+                        fullName: '',
+                        username: '',
+                        password: '',
+                        confirmPassword: '',
+                        securityQuestion: '',
+                        securityAnswer: ''
+                    });
+                    setSuccess('');
+                }, 3000);
+            };
+
+            const handleLogin = (e) => {
+                e.preventDefault();
+                setError('');
+                setSuccess('');
+
+                if (!formData.username || !formData.password) {
+                    setError('❌ Please enter both username and password');
+                    return;
+                }
+
+                const users = JSON.parse(localStorage.getItem('picnicUsers') || '[]');
+                
+                // Check if username exists
+                const userExists = users.find(u => u.username === formData.username);
+                if (!userExists) {
+                    setError('❌ Username "' + formData.username + '" not found. Please check your username or sign up for a new account.');
+                    return;
+                }
+
+                // Check password
+                const user = users.find(u => u.username === formData.username && u.password === formData.password);
+
+                if (user) {
+                    setSuccess('✅ Login successful! Welcome back, ' + user.fullName + '!');
+                    setTimeout(() => {
+                        localStorage.setItem('currentUser', JSON.stringify(user));
+                        onLogin(user);
+                    }, 1000);
+                } else {
+                    setError('❌ Incorrect password. Please try again or use "Forgot Password?" to reset it.');
+                }
+            };
+
+            const handleResetPassword = (e) => {
+                e.preventDefault();
+                setError('');
+                setSuccess('');
+
+                if (!formData.username) {
+                    setError('❌ Please enter your username to begin password reset');
+                    return;
+                }
+
+                const users = JSON.parse(localStorage.getItem('picnicUsers') || '[]');
+                const userIndex = users.findIndex(u => u.username === formData.username);
+
+                if (userIndex === -1) {
+                    setError('❌ Username "' + formData.username + '" not found. Please check your username or create a new account.');
+                    return;
+                }
+
+                if (!formData.securityAnswer) {
+                    setError('❌ Please answer your security question');
+                    return;
+                }
+
+                if (!formData.password || !formData.confirmPassword) {
+                    setError('❌ Please enter and confirm your new password');
+                    return;
+                }
+
+                const user = users[userIndex];
+                
+                if (user.securityAnswer !== formData.securityAnswer.toLowerCase()) {
+                    setError('❌ Incorrect security answer. Please try again or contact support if you forgot your answer.');
+                    return;
+                }
+
+                if (formData.password.length < 6) {
+                    setError('❌ New password must be at least 6 characters long for security');
+                    return;
+                }
+
+                if (formData.password !== formData.confirmPassword) {
+                    setError('❌ Passwords do not match. Please make sure both password fields are identical.');
+                    return;
+                }
+
+                // Update password
+                users[userIndex].password = formData.password;
+                localStorage.setItem('picnicUsers', JSON.stringify(users));
+
+                setSuccess('✅ SUCCESS! Password has been reset for ' + user.fullName + '. You can now login with your new password.');
+                setTimeout(() => {
+                    setAuthMode('login');
+                    setFormData({
+                        email: '',
+                        fullName: '',
+                        username: '',
+                        password: '',
+                        confirmPassword: '',
+                        securityQuestion: '',
+                        securityAnswer: ''
+                    });
+                    setSuccess('');
+                }, 3000);
+            };
+
+            const securityQuestions = [
+                "What is your mother's maiden name?",
+                "What was the name of your first pet?",
+                "What city were you born in?",
+                "What is your favorite color?",
+                "What was your childhood nickname?"
+            ];
+
+            return (
+                <div className="auth-bg flex items-center justify-center p-4">
+                    <div className="max-w-md w-full">
+                        {/* Logo Header */}
+                        <div className="text-center mb-8">
+                            <div className="inline-block bg-white rounded-2xl p-4 shadow-2xl mb-4">
+                                <div className="text-6xl">🧺</div>
+                            </div>
+                            <h1 className="text-4xl font-bold text-white mb-2">Picnic Trip Manager</h1>
+                            <p className="text-purple-200">Manage your group expenses with ease</p>
+                        </div>
+
+                        {/* Auth Form Container */}
+                        <div className="glass-effect rounded-2xl shadow-2xl p-8">
+                            {/* Tab Buttons */}
+                            <div className="flex gap-2 mb-6">
+                                <button
+                                    onClick={() => {
+                                        setAuthMode('login');
+                                        setError('');
+                                        setSuccess('');
+                                    }}
+                                    className={`flex-1 py-3 rounded-lg font-semibold transition ${
+                                        authMode === 'login'
+                                            ? 'gradient-bg text-white shadow-lg'
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    }`}
+                                >
+                                    Login
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setAuthMode('signup');
+                                        setError('');
+                                        setSuccess('');
+                                    }}
+                                    className={`flex-1 py-3 rounded-lg font-semibold transition ${
+                                        authMode === 'signup'
+                                            ? 'gradient-bg text-white shadow-lg'
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    }`}
+                                >
+                                    Sign Up
+                                </button>
+                            </div>
+
+                            {/* Success Message */}
+                            {success && (
+                                <div className="mb-6 p-5 bg-green-50 border-2 border-green-400 text-green-800 rounded-xl shadow-lg animate-pulse">
+                                    <div className="flex items-center gap-3">
+                                        <div className="text-3xl">✅</div>
+                                        <div className="flex-1">
+                                            <div className="font-bold text-lg mb-1">Success!</div>
+                                            <div className="text-sm">{success}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Error Message */}
+                            {error && (
+                                <div className="mb-6 p-5 bg-red-50 border-2 border-red-400 text-red-800 rounded-xl shadow-lg">
+                                    <div className="flex items-center gap-3">
+                                        <div className="text-3xl">⚠️</div>
+                                        <div className="flex-1">
+                                            <div className="font-bold text-lg mb-1">Error</div>
+                                            <div className="text-sm">{error}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Login Form */}
+                            {authMode === 'login' && (
+                                <form onSubmit={handleLogin}>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                Username
+                                            </label>
+                                            <input
+                                                type="text"
+                                                name="username"
+                                                value={formData.username}
+                                                onChange={handleInputChange}
+                                                className="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:border-blue-500 outline-none transition"
+                                                placeholder="Enter your username"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                Password
+                                            </label>
+                                            <input
+                                                type="password"
+                                                name="password"
+                                                value={formData.password}
+                                                onChange={handleInputChange}
+                                                className="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:border-blue-500 outline-none transition"
+                                                placeholder="Enter your password"
+                                            />
+                                        </div>
+                                        <button
+                                            type="submit"
+                                            className="w-full gradient-bg text-white py-3 rounded-lg font-semibold hover:shadow-lg transition transform hover:scale-105"
+                                        >
+                                            Login
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setAuthMode('reset');
+                                                setError('');
+                                                setFormData({
+                                                    email: '',
+                                                    fullName: '',
+                                                    username: '',
+                                                    password: '',
+                                                    confirmPassword: '',
+                                                    securityQuestion: '',
+                                                    securityAnswer: ''
+                                                });
+                                            }}
+                                            className="w-full text-sm text-blue-600 hover:text-blue-800 font-semibold"
+                                        >
+                                            Forgot Password?
+                                        </button>
+                                    </div>
+                                </form>
+                            )}
+
+                            {/* Signup Form */}
+                            {authMode === 'signup' && (
+                                <form onSubmit={handleSignup}>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                Full Name *
+                                            </label>
+                                            <input
+                                                type="text"
+                                                name="fullName"
+                                                value={formData.fullName}
+                                                onChange={handleInputChange}
+                                                className="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:border-blue-500 outline-none transition"
+                                                placeholder="Enter your full name"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                Email Address *
+                                            </label>
+                                            <input
+                                                type="email"
+                                                name="email"
+                                                value={formData.email}
+                                                onChange={handleInputChange}
+                                                className="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:border-blue-500 outline-none transition"
+                                                placeholder="Enter your email"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                Username * (min 4 characters)
+                                            </label>
+                                            <input
+                                                type="text"
+                                                name="username"
+                                                value={formData.username}
+                                                onChange={handleInputChange}
+                                                className="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:border-blue-500 outline-none transition"
+                                                placeholder="Choose a username"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                Security Question * 
+                                                <span className="text-xs text-gray-500 font-normal ml-2">(Used for password recovery)</span>
+                                            </label>
+                                            <select
+                                                name="securityQuestion"
+                                                value={formData.securityQuestion}
+                                                onChange={handleInputChange}
+                                                className="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:border-blue-500 outline-none transition"
+                                            >
+                                                <option value="">Select a security question</option>
+                                                {securityQuestions.map((q, i) => (
+                                                    <option key={i} value={q}>{q}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                Security Answer *
+                                                <span className="text-xs text-gray-500 font-normal ml-2">(Keep this safe - you'll need it to reset password)</span>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                name="securityAnswer"
+                                                value={formData.securityAnswer}
+                                                onChange={handleInputChange}
+                                                className="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:border-blue-500 outline-none transition"
+                                                placeholder="Enter your answer"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                Password * (min 6 characters)
+                                            </label>
+                                            <input
+                                                type="password"
+                                                name="password"
+                                                value={formData.password}
+                                                onChange={handleInputChange}
+                                                className="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:border-blue-500 outline-none transition"
+                                                placeholder="Create a password"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                Confirm Password *
+                                            </label>
+                                            <input
+                                                type="password"
+                                                name="confirmPassword"
+                                                value={formData.confirmPassword}
+                                                onChange={handleInputChange}
+                                                className="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:border-blue-500 outline-none transition"
+                                                placeholder="Confirm your password"
+                                            />
+                                        </div>
+                                        <button
+                                            type="submit"
+                                            className="w-full gradient-bg text-white py-3 rounded-lg font-semibold hover:shadow-lg transition transform hover:scale-105"
+                                        >
+                                            Create Account
+                                        </button>
+                                    </div>
+                                </form>
+                            )}
+
+                            {/* Password Reset Form */}
+                            {authMode === 'reset' && (
+                                <form onSubmit={handleResetPassword}>
+                                    <div className="space-y-4">
+                                        <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-4 mb-4">
+                                            <div className="flex items-start gap-2">
+                                                <div className="text-2xl">🔑</div>
+                                                <div>
+                                                    <p className="text-sm text-blue-800 font-semibold mb-1">Password Reset Instructions:</p>
+                                                    <p className="text-xs text-blue-700">
+                                                        1. Enter your username<br/>
+                                                        2. Your security question will appear<br/>
+                                                        3. Answer the question correctly<br/>
+                                                        4. Create your new password
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                Username
+                                            </label>
+                                            <input
+                                                type="text"
+                                                name="username"
+                                                value={formData.username}
+                                                onChange={(e) => {
+                                                    handleInputChange(e);
+                                                    // Get security question for this user
+                                                    const users = JSON.parse(localStorage.getItem('picnicUsers') || '[]');
+                                                    const user = users.find(u => u.username === e.target.value);
+                                                    if (user) {
+                                                        setFormData(prev => ({
+                                                            ...prev,
+                                                            username: e.target.value,
+                                                            securityQuestion: user.securityQuestion
+                                                        }));
+                                                    }
+                                                }}
+                                                className="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:border-blue-500 outline-none transition"
+                                                placeholder="Enter your username"
+                                            />
+                                        </div>
+                                        {formData.securityQuestion && (
+                                            <>
+                                                <div>
+                                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                        Security Question
+                                                    </label>
+                                                    <div className="w-full px-4 py-3 rounded-lg border-2 border-gray-300 bg-gray-50 text-gray-700">
+                                                        {formData.securityQuestion}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                        Your Answer
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        name="securityAnswer"
+                                                        value={formData.securityAnswer}
+                                                        onChange={handleInputChange}
+                                                        className="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:border-blue-500 outline-none transition"
+                                                        placeholder="Enter your security answer"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                        New Password (min 6 characters)
+                                                    </label>
+                                                    <input
+                                                        type="password"
+                                                        name="password"
+                                                        value={formData.password}
+                                                        onChange={handleInputChange}
+                                                        className="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:border-blue-500 outline-none transition"
+                                                        placeholder="Enter new password"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                        Confirm New Password
+                                                    </label>
+                                                    <input
+                                                        type="password"
+                                                        name="confirmPassword"
+                                                        value={formData.confirmPassword}
+                                                        onChange={handleInputChange}
+                                                        className="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:border-blue-500 outline-none transition"
+                                                        placeholder="Confirm new password"
+                                                    />
+                                                </div>
+                                            </>
+                                        )}
+                                        <button
+                                            type="submit"
+                                            className="w-full gradient-bg text-white py-3 rounded-lg font-semibold hover:shadow-lg transition transform hover:scale-105"
+                                        >
+                                            Reset Password
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setAuthMode('login');
+                                                setError('');
+                                                setFormData({
+                                                    email: '',
+                                                    fullName: '',
+                                                    username: '',
+                                                    password: '',
+                                                    confirmPassword: '',
+                                                    securityQuestion: '',
+                                                    securityAnswer: ''
+                                                });
+                                            }}
+                                            className="w-full text-sm text-blue-600 hover:text-blue-800 font-semibold"
+                                        >
+                                            Back to Login
+                                        </button>
+                                    </div>
+                                </form>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+        
+        const PicnicTripManager = ({ currentUser, onLogout }) => {
+            const [trips, setTrips] = useState([]);
+            const [currentTrip, setCurrentTrip] = useState(null);
+            const [activeTab, setActiveTab] = useState('dashboard');
+            const [participants, setParticipants] = useState([]);
+            const [expenses, setExpenses] = useState([]);
+            const [currency, setCurrency] = useState(currencies[0]);
+            
+            // Form states
+            const [tripName, setTripName] = useState('');
+            const [tripDate, setTripDate] = useState('');
+            const [participantName, setParticipantName] = useState('');
+            const [familyMembers, setFamilyMembers] = useState(1);
+            const [expenseDescription, setExpenseDescription] = useState('');
+            const [expenseAmount, setExpenseAmount] = useState('');
+            const [expensePaidBy, setExpensePaidBy] = useState('');
+            const [splitType, setSplitType] = useState('perHead');
+
+            useEffect(() => {
+                // Load user-specific trips
+                const userTripsKey = `picnicTrips_${currentUser.username}`;
+                const savedTrips = localStorage.getItem(userTripsKey);
+                const savedCurrency = localStorage.getItem(`picnicCurrency_${currentUser.username}`);
+                
+                if (savedCurrency) {
+                    const currencyObj = currencies.find(c => c.code === savedCurrency) || currencies[0];
+                    setCurrency(currencyObj);
+                }
+                
+                if (savedTrips) {
+                    const parsedTrips = JSON.parse(savedTrips);
+                    setTrips(parsedTrips);
+                    if (parsedTrips.length > 0) {
+                        setCurrentTrip(parsedTrips[0]);
+                        setParticipants(parsedTrips[0].participants || []);
+                        setExpenses(parsedTrips[0].expenses || []);
+                    }
+                }
+            }, [currentUser.username]);
+
+            const saveToLocalStorage = (updatedTrips) => {
+                const userTripsKey = `picnicTrips_${currentUser.username}`;
+                localStorage.setItem(userTripsKey, JSON.stringify(updatedTrips));
+            };
+
+            const changeCurrency = (currencyCode) => {
+                const newCurrency = currencies.find(c => c.code === currencyCode);
+                setCurrency(newCurrency);
+                localStorage.setItem(`picnicCurrency_${currentUser.username}`, currencyCode);
+            };
+
+            const generatePDFReport = () => {
+                try {
+                    if (typeof window.jspdf === 'undefined') {
+                        alert('PDF library is loading. Please wait a moment and try again.');
+                        return;
+                    }
+                    
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF();
+                    
+                    const pageWidth = doc.internal.pageSize.getWidth();
+                    const pageHeight = doc.internal.pageSize.getHeight();
+                    const margin = 15;
+                    const contentWidth = pageWidth - (margin * 2);
+                    let yPos = 15;
+                    
+                    const formatCurrency = (amount) => {
+                        return currency.symbol + amount.toFixed(2);
+                    };
+                    
+                    const checkNewPage = (spaceNeeded) => {
+                        if (yPos + spaceNeeded > pageHeight - 25) {
+                            doc.addPage();
+                            yPos = 20;
+                            return true;
+                        }
+                        return false;
+                    };
+                    
+                    // HEADER
+                    doc.setFillColor(30, 64, 175);
+                    doc.rect(0, 0, pageWidth, 40, 'F');
+                    doc.setFillColor(59, 130, 246);
+                    doc.rect(0, 37, pageWidth, 3, 'F');
+                    
+                    // Logo - Drawn Basket Icon
+                    const logoX = pageWidth / 2;
+                    const logoY = 12;
+                    
+                    // White rounded background for logo
+                    doc.setFillColor(255, 255, 255);
+                    doc.roundedRect(logoX - 8, logoY - 6, 16, 16, 3, 3, 'F');
+                    
+                    // Draw basket
+                    doc.setFillColor(139, 69, 19); // Brown color for basket
+                    // Basket body (trapezoid shape)
+                    doc.rect(logoX - 5, logoY, 10, 6, 'F');
+                    // Top rim
+                    doc.rect(logoX - 5.5, logoY - 0.5, 11, 1, 'F');
+                    
+                    // Basket handle (arc using lines)
+                    doc.setDrawColor(139, 69, 19);
+                    doc.setLineWidth(1.2);
+                    // Draw handle as curved line
+                    doc.line(logoX - 4, logoY, logoX - 3, logoY - 3);
+                    doc.line(logoX - 3, logoY - 3, logoX - 1, logoY - 4);
+                    doc.line(logoX - 1, logoY - 4, logoX + 1, logoY - 4);
+                    doc.line(logoX + 1, logoY - 4, logoX + 3, logoY - 3);
+                    doc.line(logoX + 3, logoY - 3, logoX + 4, logoY);
+                    
+                    // Basket weave pattern
+                    doc.setDrawColor(101, 67, 33);
+                    doc.setLineWidth(0.5);
+                    // Horizontal lines
+                    doc.line(logoX - 5, logoY + 2, logoX + 5, logoY + 2);
+                    doc.line(logoX - 5, logoY + 4, logoX + 5, logoY + 4);
+                    // Vertical lines
+                    doc.line(logoX - 3, logoY, logoX - 3, logoY + 6);
+                    doc.line(logoX, logoY, logoX, logoY + 6);
+                    doc.line(logoX + 3, logoY, logoX + 3, logoY + 6);
+                    
+                    doc.setTextColor(255, 255, 255);
+                    doc.setFontSize(20);
+                    doc.setFont(undefined, 'bold');
+                    const reportTitle = currentTrip.name.toUpperCase() + ' SETTLEMENT REPORT';
+                    doc.text(reportTitle, pageWidth / 2, 30, { align: 'center' });
+                    
+                    doc.setFontSize(10);
+                    doc.setFont(undefined, 'normal');
+                    doc.text('Financial Summary & Settlement Details', pageWidth / 2, 36, { align: 'center' });
+                    
+                    yPos = 45;
+                    
+                    // TRIP INFO BAR
+                    doc.setFillColor(248, 250, 252);
+                    doc.roundedRect(margin, yPos, contentWidth, 13, 2, 2, 'F');
+                    doc.setDrawColor(203, 213, 225);
+                    doc.setLineWidth(0.3);
+                    doc.roundedRect(margin, yPos, contentWidth, 13, 2, 2, 'S');
+                    
+                    doc.setTextColor(51, 65, 85);
+                    doc.setFontSize(11);
+                    doc.setFont(undefined, 'bold');
+                    doc.text('Date: ', margin + 3, yPos + 8.5);
+                    doc.setFont(undefined, 'normal');
+                    doc.text(new Date(currentTrip.date).toLocaleDateString('en-US', { 
+                        year: 'numeric', month: 'long', day: 'numeric' 
+                    }), margin + 16, yPos + 8.5);
+                    
+                    doc.setFont(undefined, 'bold');
+                    doc.text('Currency: ', pageWidth / 2 - 15, yPos + 8.5);
+                    doc.setFont(undefined, 'normal');
+                    doc.text(currency.code + ' (' + currency.symbol + ')', pageWidth / 2 + 4, yPos + 8.5);
+                    
+                    doc.setFont(undefined, 'bold');
+                    doc.text('Participants: ', pageWidth - margin - 30, yPos + 8.5);
+                    doc.setFont(undefined, 'normal');
+                    doc.text(participants.length.toString(), pageWidth - margin - 3, yPos + 8.5, { align: 'right' });
+                    
+                    yPos += 20;
+                    
+                    // DASHBOARD - 4 CARDS MATCHING UPLOADED IMAGE
+                    doc.setFontSize(14);
+                    doc.setFont(undefined, 'bold');
+                    doc.setTextColor(30, 64, 175);
+                    doc.text('FINANCIAL OVERVIEW', margin, yPos);
+                    yPos += 10;
+                    
+                    const dashCardWidth = (contentWidth - 9) / 4; // 4 cards with gaps
+                    const dashCardHeight = 35;
+                    const dashCardGap = 3;
+                    
+                    const dashboardCards = [
+                        { 
+                            iconType: 'people',
+                            value: participants.length.toString(), 
+                            label: 'Families',
+                            bgColor: [59, 130, 246],         // Blue
+                            iconBgColor: [30, 64, 175]       // Darker blue for icon circle
+                        },
+                        { 
+                            iconType: 'group',
+                            value: totalHeads.toString(), 
+                            label: 'Total Heads',
+                            bgColor: [6, 182, 212],          // Cyan
+                            iconBgColor: [8, 145, 178]       // Darker cyan for icon circle
+                        },
+                        { 
+                            iconType: 'moneybag',
+                            value: formatCurrency(totalExpenses), 
+                            label: 'Total Expenses',
+                            bgColor: [16, 185, 129],         // Green
+                            iconBgColor: [5, 150, 105]       // Darker green for icon circle
+                        },
+                        { 
+                            iconType: 'bills',
+                            value: formatCurrency(costPerHead), 
+                            label: 'Cost Per Head',
+                            bgColor: [168, 85, 247],         // Purple
+                            iconBgColor: [124, 58, 237]      // Darker purple for icon circle
+                        }
+                    ];
+                    
+                    dashboardCards.forEach((card, index) => {
+                        const cardX = margin + (index * (dashCardWidth + dashCardGap));
+                        
+                        // Main card background with rounded corners
+                        doc.setFillColor(...card.bgColor);
+                        doc.roundedRect(cardX, yPos, dashCardWidth, dashCardHeight, 3, 3, 'F');
+                        
+                        // Darker area at top for visual depth
+                        const topDarkColor = card.iconBgColor.map(c => Math.max(0, c - 10));
+                        doc.setFillColor(...topDarkColor);
+                        doc.roundedRect(cardX, yPos, dashCardWidth, 12, 3, 3, 'F');
+                        
+                        // Icon circle background at top-left
+                        const iconX = cardX + 10;
+                        const iconY = yPos + 8;
+                        doc.setFillColor(...card.iconBgColor);
+                        doc.circle(iconX, iconY, 5, 'F');
+                        
+                        // Draw custom icons
+                        doc.setDrawColor(255, 255, 255);
+                        doc.setFillColor(255, 255, 255);
+                        doc.setLineWidth(0.8);
+                        
+                        if (card.iconType === 'people') {
+                            // Two people icons
+                            doc.circle(iconX - 1.5, iconY - 0.5, 1.2, 'F'); // Head 1
+                            doc.circle(iconX + 1.5, iconY - 0.5, 1.2, 'F'); // Head 2
+                            doc.roundedRect(iconX - 2.5, iconY + 0.5, 2, 2.5, 0.5, 0.5, 'F'); // Body 1
+                            doc.roundedRect(iconX + 0.5, iconY + 0.5, 2, 2.5, 0.5, 0.5, 'F'); // Body 2
+                        } else if (card.iconType === 'group') {
+                            // Three people group
+                            doc.circle(iconX - 2, iconY, 1, 'F'); // Head 1
+                            doc.circle(iconX, iconY - 0.5, 1, 'F'); // Head 2 (center)
+                            doc.circle(iconX + 2, iconY, 1, 'F'); // Head 3
+                            doc.roundedRect(iconX - 2.5, iconY + 0.8, 1.5, 1.8, 0.3, 0.3, 'F'); // Body 1
+                            doc.roundedRect(iconX - 0.8, iconY + 0.3, 1.6, 1.8, 0.3, 0.3, 'F'); // Body 2
+                            doc.roundedRect(iconX + 1, iconY + 0.8, 1.5, 1.8, 0.3, 0.3, 'F'); // Body 3
+                        } else if (card.iconType === 'moneybag') {
+                            // Money bag - circle with dollar sign
+                            doc.circle(iconX, iconY, 3, 'F');
+                            // Draw $ symbol using lines
+                            doc.setDrawColor(card.iconBgColor[0], card.iconBgColor[1], card.iconBgColor[2]);
+                            doc.setLineWidth(1);
+                            // Vertical line
+                            doc.line(iconX, iconY - 2, iconX, iconY + 2);
+                            // S shape with lines
+                            doc.line(iconX - 1.2, iconY - 1.2, iconX + 1.2, iconY - 1.2); // Top horizontal
+                            doc.line(iconX + 1.2, iconY - 1.2, iconX + 1.2, iconY - 0.2); // Top right
+                            doc.line(iconX + 1.2, iconY - 0.2, iconX - 1.2, iconY - 0.2); // Middle horizontal
+                            doc.line(iconX - 1.2, iconY - 0.2, iconX - 1.2, iconY + 0.8); // Bottom left
+                            doc.line(iconX - 1.2, iconY + 0.8, iconX + 1.2, iconY + 0.8); // Bottom horizontal
+                        } else if (card.iconType === 'bills') {
+                            // Money bills (stacked rectangles)
+                            doc.roundedRect(iconX - 2.5, iconY - 1.5, 4, 2.5, 0.5, 0.5, 'F');
+                            doc.setFillColor(...card.iconBgColor);
+                            doc.roundedRect(iconX - 2, iconY - 1, 4, 2.5, 0.5, 0.5, 'F');
+                            doc.setFillColor(255, 255, 255);
+                            doc.roundedRect(iconX - 1.5, iconY - 0.5, 4, 2.5, 0.5, 0.5, 'F');
+                        }
+                        
+                        // Value (large, centered in bottom area)
+                        doc.setTextColor(255, 255, 255);
+                        doc.setFontSize(15);
+                        doc.setFont(undefined, 'bold');
+                        doc.text(card.value, cardX + dashCardWidth / 2, yPos + 22, { align: 'center' });
+                        
+                        // Label (small, centered below value)
+                        doc.setFontSize(7);
+                        doc.setFont(undefined, 'normal');
+                        doc.text(card.label, cardX + dashCardWidth / 2, yPos + 30, { align: 'center' });
+                    });
+                    
+                    yPos += dashCardHeight + 8;
+                    
+                    // INDIVIDUAL COST BREAKDOWN
+                    checkNewPage(40);
+                    doc.setFillColor(241, 245, 249);
+                    doc.rect(margin, yPos, contentWidth, 9, 'F');
+                    doc.setFillColor(30, 64, 175);
+                    doc.rect(margin, yPos, 3, 9, 'F');
+                    doc.setTextColor(30, 64, 175);
+                    doc.setFontSize(14);
+                    doc.setFont(undefined, 'bold');
+                    doc.text('INDIVIDUAL COST BREAKDOWN', margin + 6, yPos + 6);
+                    yPos += 14;
+                    
+                    const cardsPerRow = 3;
+                    const cardGap = 3;
+                    const gridCardWidth = (contentWidth - (cardGap * 2)) / 3;
+                    const gridCardHeight = 28;
+                    let currentRowY = yPos;
+                    
+                    participants.forEach((participant, index) => {
+                        const columnIndex = index % cardsPerRow;
+                        
+                        if (columnIndex === 0 && checkNewPage(gridCardHeight + 5)) {
+                            currentRowY = yPos;
+                        }
+                        
+                        const cardX = margin + (columnIndex * (gridCardWidth + cardGap));
+                        const cardY = currentRowY;
+                        
+                        const paid = expenses.filter(e => e.paidBy === participant.name).reduce((sum, e) => sum + e.amount, 0);
+                        const share = expenses.reduce((sum, expense) => {
+                            const totalHeads = participants.reduce((s, p) => s + p.familyMembers, 0);
+                            const totalFamilies = participants.length;
+                            const sharePerUnit = expense.splitType === 'perHead' ? expense.amount / totalHeads : expense.amount / totalFamilies;
+                            return sum + (expense.splitType === 'perHead' ? sharePerUnit * participant.familyMembers : sharePerUnit);
+                        }, 0);
+                        
+                        const balance = paid - share;
+                        const totalShareForFamily = costPerHead * participant.familyMembers;
+                        const statusColor = balance > 0 ? [34, 197, 94] : balance < 0 ? [239, 68, 68] : [148, 163, 184];
+                        const bgColor = balance > 0 ? [240, 253, 244] : balance < 0 ? [254, 242, 242] : [248, 250, 252];
+                        
+                        doc.setFillColor(...bgColor);
+                        doc.roundedRect(cardX, cardY, gridCardWidth, gridCardHeight, 2, 2, 'F');
+                        doc.setFillColor(...statusColor);
+                        doc.roundedRect(cardX, cardY, gridCardWidth, 2, 2, 2, 'F');
+                        doc.setDrawColor(...statusColor);
+                        doc.setLineWidth(0.5);
+                        doc.roundedRect(cardX, cardY, gridCardWidth, gridCardHeight, 2, 2, 'S');
+                        
+                        doc.setFillColor(...statusColor);
+                        doc.circle(cardX + 6, cardY + 6, 2.5, 'F');
+                        doc.setTextColor(255, 255, 255);
+                        doc.setFontSize(7);
+                        doc.setFont(undefined, 'bold');
+                        doc.text((index + 1).toString(), cardX + 6, cardY + 7.5, { align: 'center' });
+                        
+                        doc.setTextColor(15, 23, 42);
+                        doc.setFontSize(9);
+                        doc.setFont(undefined, 'bold');
+                        const nameText = participant.name.length > 15 ? participant.name.substring(0, 13) + '..' : participant.name;
+                        doc.text(nameText, cardX + 11, cardY + 6.5);
+                        doc.setFontSize(6);
+                        doc.setFont(undefined, 'normal');
+                        doc.setTextColor(100, 116, 139);
+                        doc.text(participant.familyMembers.toString() + ' member' + (participant.familyMembers > 1 ? 's' : ''), cardX + 11, cardY + 10);
+                        
+                        doc.setDrawColor(203, 213, 225);
+                        doc.setLineWidth(0.2);
+                        doc.line(cardX + 3, cardY + 12, cardX + gridCardWidth - 3, cardY + 12);
+                        
+                        const detailX = cardX + 3;
+                        let detailY = cardY + 15;
+                        
+                        doc.setFontSize(6);
+                        doc.setTextColor(100, 116, 139);
+                        doc.setFont(undefined, 'normal');
+                        doc.text('Per Head:', detailX, detailY);
+                        doc.setTextColor(15, 23, 42);
+                        doc.setFontSize(7);
+                        doc.setFont(undefined, 'bold');
+                        doc.text(formatCurrency(costPerHead), detailX + 16, detailY);
+                        detailY += 3.5;
+                        
+                        doc.setFontSize(6);
+                        doc.setFont(undefined, 'normal');
+                        doc.setTextColor(100, 116, 139);
+                        doc.text('Total Share:', detailX, detailY);
+                        doc.setTextColor(15, 23, 42);
+                        doc.setFontSize(7);
+                        doc.setFont(undefined, 'bold');
+                        doc.text(formatCurrency(totalShareForFamily), detailX + 16, detailY);
+                        detailY += 3.5;
+                        
+                        doc.setFontSize(6);
+                        doc.setFont(undefined, 'normal');
+                        doc.setTextColor(100, 116, 139);
+                        doc.text('Paid:', detailX, detailY);
+                        doc.setTextColor(15, 23, 42);
+                        doc.setFontSize(7);
+                        doc.setFont(undefined, 'bold');
+                        doc.text(formatCurrency(paid), detailX + 16, detailY);
+                        
+                        const statusY = cardY + gridCardHeight - 4;
+                        const statusText = balance > 0 ? 'RECEIVE' : balance < 0 ? 'PAY' : 'SETTLED';
+                        const statusAmount = balance !== 0 ? formatCurrency(Math.abs(balance)) : '✓';
+                        
+                        doc.setFillColor(...statusColor);
+                        doc.roundedRect(cardX + 2, statusY - 1, gridCardWidth - 4, 4, 1, 1, 'F');
+                        doc.setFont(undefined, 'bold');
+                        doc.setFontSize(6);
+                        doc.setTextColor(255, 255, 255);
+                        doc.text(statusText + ':', cardX + 4, statusY + 1.5);
+                        doc.setFontSize(7);
+                        doc.text(statusAmount, cardX + gridCardWidth - 4, statusY + 1.5, { align: 'right' });
+                        
+                        if (columnIndex === cardsPerRow - 1 || index === participants.length - 1) {
+                            currentRowY += gridCardHeight + cardGap;
+                            yPos = currentRowY;
+                        }
+                    });
+                    
+                    // IMPROVED SETTLEMENT TRANSACTIONS
+                    if (settlements.length > 0) {
+                        yPos += 12;
+                        checkNewPage(50);
+                        
+                        // Enhanced Section Header
+                        doc.setFillColor(59, 130, 246);
+                        doc.rect(margin, yPos, contentWidth, 18, 'F');
+                        
+                        doc.setFillColor(96, 165, 250);
+                        doc.rect(margin, yPos, contentWidth, 3, 'F');
+                        
+                        doc.setTextColor(255, 255, 255);
+                        doc.setFontSize(16);
+                        doc.setFont(undefined, 'bold');
+                        doc.text('SETTLEMENT TRANSACTIONS', pageWidth / 2, yPos + 9, { align: 'center' });
+                        
+                        doc.setFontSize(9);
+                        doc.setFont(undefined, 'normal');
+                        doc.text('Who needs to pay whom to settle all expenses', pageWidth / 2, yPos + 14, { align: 'center' });
+                        
+                        yPos += 24;
+                        
+                        // Simple Linear Settlement Cards
+                        settlements.forEach((settlement, index) => {
+                            checkNewPage(35);
+                            
+                            const cardHeight = 32;
+                            const cardY = yPos;
+                            
+                            // Card background
+                            doc.setFillColor(255, 255, 255);
+                            doc.roundedRect(margin, cardY, contentWidth, cardHeight, 3, 3, 'F');
+                            
+                            // Card border
+                            doc.setDrawColor(59, 130, 246);
+                            doc.setLineWidth(0.8);
+                            doc.roundedRect(margin, cardY, contentWidth, cardHeight, 3, 3, 'S');
+                            
+                            // Left accent bar
+                            doc.setFillColor(59, 130, 246);
+                            doc.roundedRect(margin, cardY, 3, cardHeight, 3, 3, 'F');
+                            
+                            // Transaction number badge
+                            doc.setFillColor(59, 130, 246);
+                            doc.circle(margin + 15, cardY + 10, 5, 'F');
+                            doc.setTextColor(255, 255, 255);
+                            doc.setFontSize(10);
+                            doc.setFont(undefined, 'bold');
+                            doc.text((index + 1).toString(), margin + 15, cardY + 12, { align: 'center' });
+                            
+                            // FROM Section
+                            const fromX = margin + 28;
+                            doc.setFillColor(254, 226, 226);
+                            doc.roundedRect(fromX, cardY + 5, 48, 22, 2, 2, 'F');
+                            
+                            doc.setFillColor(239, 68, 68);
+                            doc.circle(fromX + 8, cardY + 12, 4, 'F');
+                            doc.setTextColor(255, 255, 255);
+                            doc.setFontSize(9);
+                            doc.setFont(undefined, 'bold');
+                            doc.text(settlement.from.charAt(0).toUpperCase(), fromX + 8, cardY + 13.5, { align: 'center' });
+                            
+                            doc.setTextColor(127, 29, 29);
+                            doc.setFontSize(8);
+                            doc.setFont(undefined, 'bold');
+                            doc.text('FROM', fromX + 15, cardY + 9);
+                            
+                            doc.setFontSize(10);
+                            doc.setFont(undefined, 'bold');
+                            const fromName = settlement.from.length > 12 ? settlement.from.substring(0, 10) + '..' : settlement.from;
+                            doc.text(fromName, fromX + 15, cardY + 14);
+                            
+                            doc.setFontSize(7);
+                            doc.setFont(undefined, 'normal');
+                            doc.setTextColor(153, 27, 27);
+                            doc.text('(Payer)', fromX + 15, cardY + 18);
+                            
+                            // ARROW with amount
+                            const arrowCenterX = pageWidth / 2;
+                            const arrowY = cardY + 16;
+                            
+                            // Arrow line
+                            doc.setDrawColor(59, 130, 246);
+                            doc.setLineWidth(1.5);
+                            doc.line(fromX + 50, arrowY, arrowCenterX + 30, arrowY);
+                            
+                            // Arrow head
+                            doc.setFillColor(59, 130, 246);
+                            const arrowHeadSize = 3;
+                            doc.triangle(
+                                arrowCenterX + 30, arrowY,
+                                arrowCenterX + 30 - arrowHeadSize, arrowY - arrowHeadSize,
+                                arrowCenterX + 30 - arrowHeadSize, arrowY + arrowHeadSize,
+                                'F'
+                            );
+                            
+                            // Amount badge on arrow
+                            const amountText = formatCurrency(settlement.amount);
+                            doc.setFontSize(11);
+                            doc.setFont(undefined, 'bold');
+                            const amountWidth = doc.getTextWidth(amountText) + 8;
+                            
+                            doc.setFillColor(16, 185, 129);
+                            doc.roundedRect(arrowCenterX - amountWidth / 2, arrowY - 6, amountWidth, 10, 2, 2, 'F');
+                            
+                            doc.setTextColor(255, 255, 255);
+                            doc.text(amountText, arrowCenterX, arrowY + 1.5, { align: 'center' });
+                            
+                            // TO Section
+                            const toX = arrowCenterX + 35;
+                            doc.setFillColor(220, 252, 231);
+                            doc.roundedRect(toX, cardY + 5, 48, 22, 2, 2, 'F');
+                            
+                            doc.setFillColor(34, 197, 94);
+                            doc.circle(toX + 8, cardY + 12, 4, 'F');
+                            doc.setTextColor(255, 255, 255);
+                            doc.setFontSize(9);
+                            doc.setFont(undefined, 'bold');
+                            doc.text(settlement.to.charAt(0).toUpperCase(), toX + 8, cardY + 13.5, { align: 'center' });
+                            
+                            doc.setTextColor(20, 83, 45);
+                            doc.setFontSize(8);
+                            doc.setFont(undefined, 'bold');
+                            doc.text('TO', toX + 15, cardY + 9);
+                            
+                            doc.setFontSize(10);
+                            doc.setFont(undefined, 'bold');
+                            const toName = settlement.to.length > 12 ? settlement.to.substring(0, 10) + '..' : settlement.to;
+                            doc.text(toName, toX + 15, cardY + 14);
+                            
+                            doc.setFontSize(7);
+                            doc.setFont(undefined, 'normal');
+                            doc.setTextColor(21, 128, 61);
+                            doc.text('(Receiver)', toX + 15, cardY + 18);
+                            
+                            yPos += cardHeight + 6;
+                        });
+                    }
+                    
+                    // FOOTER
+                    const totalPages = doc.internal.getNumberOfPages();
+                    for (let i = 1; i <= totalPages; i++) {
+                        doc.setPage(i);
+                        const footerY = pageHeight - 12;
+                        doc.setDrawColor(203, 213, 225);
+                        doc.setLineWidth(0.3);
+                        doc.line(margin, footerY - 2, pageWidth - margin, footerY - 2);
+                        doc.setTextColor(100, 116, 139);
+                        doc.setFontSize(9);
+                        doc.setFont(undefined, 'bold');
+                        doc.text('Generated by Picnic Trip Manager', margin, footerY + 3);
+                        doc.setFont(undefined, 'normal');
+                        doc.text(new Date().toLocaleDateString('en-US', { 
+                            year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                        }), pageWidth / 2, footerY + 3, { align: 'center' });
+                        doc.setFont(undefined, 'bold');
+                        doc.text('Page ' + i + ' of ' + totalPages, pageWidth - margin, footerY + 3, { align: 'right' });
+                    }
+                    
+                    const fileName = currentTrip.name.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '_settlement_report.pdf';
+                    doc.save(fileName);
+                    
+                } catch (error) {
+                    console.error('PDF Generation Error:', error);
+                    alert('Error generating PDF: ' + error.message);
+                }
+            };
+                
+            const createTrip = () => {
+                if (!tripName || !tripDate) {
+                    alert('Please fill in trip name and date');
+                    return;
+                }
+                
+                const newTrip = {
+                    id: Date.now(),
+                    name: tripName,
+                    date: tripDate,
+                    participants: [],
+                    expenses: [],
+                    createdAt: new Date().toISOString()
+                };
+                
+                const updatedTrips = [newTrip, ...trips];
+                setTrips(updatedTrips);
+                setCurrentTrip(newTrip);
+                setParticipants([]);
+                setExpenses([]);
+                setTripName('');
+                setTripDate('');
+                saveToLocalStorage(updatedTrips);
+                setActiveTab('participants');
+            };
+
+            const addParticipant = () => {
+                if (!participantName || familyMembers < 1) {
+                    alert('Please fill in participant details');
+                    return;
+                }
+                
+                const newParticipant = {
+                    id: Date.now(),
+                    name: participantName,
+                    familyMembers: parseInt(familyMembers)
+                };
+                
+                const updatedParticipants = [...participants, newParticipant];
+                setParticipants(updatedParticipants);
+                
+                const updatedTrips = trips.map(trip => 
+                    trip.id === currentTrip.id 
+                        ? { ...trip, participants: updatedParticipants }
+                        : trip
+                );
+                setTrips(updatedTrips);
+                saveToLocalStorage(updatedTrips);
+                
+                setParticipantName('');
+                setFamilyMembers(1);
+            };
+
+            const removeParticipant = (id) => {
+                const updatedParticipants = participants.filter(p => p.id !== id);
+                setParticipants(updatedParticipants);
+                
+                const updatedTrips = trips.map(trip => 
+                    trip.id === currentTrip.id 
+                        ? { ...trip, participants: updatedParticipants }
+                        : trip
+                );
+                setTrips(updatedTrips);
+                saveToLocalStorage(updatedTrips);
+            };
+
+            const addExpense = () => {
+                if (!expenseDescription || !expenseAmount || !expensePaidBy) {
+                    alert('Please fill in all expense details');
+                    return;
+                }
+                
+                const newExpense = {
+                    id: Date.now(),
+                    description: expenseDescription,
+                    amount: parseFloat(expenseAmount),
+                    paidBy: expensePaidBy,
+                    splitType: splitType,
+                    date: new Date().toISOString()
+                };
+                
+                const updatedExpenses = [...expenses, newExpense];
+                setExpenses(updatedExpenses);
+                
+                const updatedTrips = trips.map(trip => 
+                    trip.id === currentTrip.id 
+                        ? { ...trip, expenses: updatedExpenses }
+                        : trip
+                );
+                setTrips(updatedTrips);
+                saveToLocalStorage(updatedTrips);
+                
+                setExpenseDescription('');
+                setExpenseAmount('');
+                setExpensePaidBy('');
+            };
+
+            const removeExpense = (id) => {
+                const updatedExpenses = expenses.filter(e => e.id !== id);
+                setExpenses(updatedExpenses);
+                
+                const updatedTrips = trips.map(trip => 
+                    trip.id === currentTrip.id 
+                        ? { ...trip, expenses: updatedExpenses }
+                        : trip
+                );
+                setTrips(updatedTrips);
+                saveToLocalStorage(updatedTrips);
+            };
+
+            const calculateSettlements = () => {
+                if (participants.length === 0 || expenses.length === 0) return [];
+
+                const balances = {};
+                participants.forEach(p => {
+                    balances[p.name] = 0;
+                });
+
+                expenses.forEach(expense => {
+                    const totalHeads = participants.reduce((sum, p) => sum + p.familyMembers, 0);
+                    const totalFamilies = participants.length;
+                    
+                    const sharePerUnit = expense.splitType === 'perHead' 
+                        ? expense.amount / totalHeads 
+                        : expense.amount / totalFamilies;
+
+                    participants.forEach(p => {
+                        const share = expense.splitType === 'perHead' 
+                            ? sharePerUnit * p.familyMembers 
+                            : sharePerUnit;
+                        
+                        if (p.name === expense.paidBy) {
+                            balances[p.name] += expense.amount - share;
+                        } else {
+                            balances[p.name] -= share;
+                        }
+                    });
+                });
+
+                const settlements = [];
+                const debtors = Object.entries(balances).filter(([_, amount]) => amount < 0);
+                const creditors = Object.entries(balances).filter(([_, amount]) => amount > 0);
+
+                debtors.forEach(([debtor, debtAmount]) => {
+                    let remaining = Math.abs(debtAmount);
+                    creditors.forEach(([creditor, creditAmount]) => {
+                        if (remaining > 0 && creditAmount > 0) {
+                            const payment = Math.min(remaining, creditAmount);
+                            settlements.push({
+                                from: debtor,
+                                to: creditor,
+                                amount: payment
+                            });
+                            remaining -= payment;
+                            balances[creditor] -= payment;
+                        }
+                    });
+                });
+
+                return settlements;
+            };
+
+            const switchTrip = (trip) => {
+                setCurrentTrip(trip);
+                setParticipants(trip.participants || []);
+                setExpenses(trip.expenses || []);
+                setActiveTab('dashboard');
+            };
+
+            const deleteTrip = (tripId) => {
+                if (!confirm('Are you sure you want to delete this trip?')) return;
+                
+                const updatedTrips = trips.filter(t => t.id !== tripId);
+                setTrips(updatedTrips);
+                saveToLocalStorage(updatedTrips);
+                
+                if (currentTrip?.id === tripId) {
+                    if (updatedTrips.length > 0) {
+                        setCurrentTrip(updatedTrips[0]);
+                        setParticipants(updatedTrips[0].participants || []);
+                        setExpenses(updatedTrips[0].expenses || []);
+                    } else {
+                        setCurrentTrip(null);
+                        setParticipants([]);
+                        setExpenses([]);
+                    }
+                }
+            };
+
+            const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+            const totalHeads = participants.reduce((sum, p) => sum + p.familyMembers, 0);
+            const costPerHead = totalHeads > 0 ? totalExpenses / totalHeads : 0;
+            const costPerFamily = participants.length > 0 ? totalExpenses / participants.length : 0;
+            const settlements = calculateSettlements();
+
+            return (
+                <div className="min-h-screen p-4 md:p-8">
+                    <div className="max-w-7xl mx-auto">
+                        {/* Header with User Info */}
+                        <div className="text-center mb-8">
+                            <div className="flex items-center justify-between mb-4">
+                                <div></div>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl flex items-center justify-center text-3xl shadow-lg">
+                                        🧺
+                                    </div>
+                                    <h1 className="text-5xl font-bold text-gray-800">
+                                        Picnic Trip Manager
+                                    </h1>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className="text-right">
+                                        <div className="text-sm text-gray-600">Welcome,</div>
+                                        <div className="font-bold text-gray-800">{currentUser.fullName}</div>
+                                    </div>
+                                    <button
+                                        onClick={onLogout}
+                                        className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-semibold transition"
+                                    >
+                                        Logout
+                                    </button>
+                                </div>
+                            </div>
+                            <p className="text-gray-600 text-lg mb-4">Professional Expense Management System</p>
+                            
+                            {/* Currency Selector */}
+                            <div className="flex items-center justify-center gap-3">
+                                <label className="text-sm font-semibold text-gray-700">Currency:</label>
+                                <select
+                                    value={currency.code}
+                                    onChange={(e) => changeCurrency(e.target.value)}
+                                    className="px-4 py-2 rounded-lg border-2 border-gray-300 focus:border-blue-500 outline-none bg-white shadow-sm font-semibold"
+                                >
+                                    {currencies.map(curr => (
+                                        <option key={curr.code} value={curr.code}>
+                                            {curr.symbol} - {curr.name} ({curr.code})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Create New Trip Section */}
+                        <div className="glass-effect rounded-xl shadow-lg p-6 mb-6 border border-gray-200">
+                            <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                <span className="text-blue-600">📝</span> Create New Trip
+                            </h2>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <input
+                                    type="text"
+                                    placeholder="Trip Name"
+                                    value={tripName}
+                                    onChange={(e) => setTripName(e.target.value)}
+                                    className="px-4 py-3 rounded-lg border-2 border-gray-300 focus:border-blue-500 outline-none transition"
+                                />
+                                <input
+                                    type="date"
+                                    value={tripDate}
+                                    onChange={(e) => setTripDate(e.target.value)}
+                                    className="px-4 py-3 rounded-lg border-2 border-gray-300 focus:border-blue-500 outline-none transition"
+                                />
+                                <button
+                                    onClick={createTrip}
+                                    className="gradient-bg text-white px-6 py-3 rounded-lg font-semibold hover:shadow-lg transition transform hover:scale-105"
+                                >
+                                    Create Trip
+                                </button>
+                            </div>
+                        </div>
+
+                        {currentTrip && (
+                            <>
+                                {/* Current Trip Header */}
+                                <div className="glass-effect rounded-xl shadow-lg p-6 mb-6 border border-gray-200">
+                                    <div className="flex justify-between items-center flex-wrap gap-4">
+                                        <div>
+                                            <h2 className="text-3xl font-bold text-gray-800">{currentTrip.name}</h2>
+                                            <p className="text-gray-600">📅 {new Date(currentTrip.date).toLocaleDateString()}</p>
+                                        </div>
+                                        <div className="flex gap-3 items-center">
+                                            {trips.length > 1 && (
+                                                <select
+                                                    onChange={(e) => switchTrip(trips.find(t => t.id === parseInt(e.target.value)))}
+                                                    value={currentTrip.id}
+                                                    className="px-4 py-2 rounded-lg border-2 border-gray-300 focus:border-blue-500 outline-none bg-white"
+                                                >
+                                                    {trips.map(trip => (
+                                                        <option key={trip.id} value={trip.id}>
+                                                            {trip.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            )}
+                                            {participants.length > 0 && expenses.length > 0 && (
+                                                <button
+                                                    onClick={() => {
+                                                        const btn = document.activeElement;
+                                                        const originalText = btn.innerHTML;
+                                                        btn.innerHTML = '<span>⏳</span> <span>Generating...</span>';
+                                                        btn.disabled = true;
+                                                        
+                                                        setTimeout(() => {
+                                                            try {
+                                                                generatePDFReport();
+                                                                btn.innerHTML = '<span>✅</span> <span>Downloaded!</span>';
+                                                                setTimeout(() => {
+                                                                    btn.innerHTML = originalText;
+                                                                    btn.disabled = false;
+                                                                }, 2000);
+                                                            } catch (error) {
+                                                                btn.innerHTML = originalText;
+                                                                btn.disabled = false;
+                                                            }
+                                                        }, 100);
+                                                    }}
+                                                    className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold transition flex items-center gap-2 shadow-lg"
+                                                >
+                                                    <span>📄</span>
+                                                    <span>Download PDF Report</span>
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Navigation Tabs */}
+                                <div className="glass-effect rounded-xl shadow-lg p-2 mb-6 border border-gray-200">
+                                    <div className="flex flex-wrap gap-2">
+                                        {['dashboard', 'participants', 'expenses', 'settlements'].map(tab => (
+                                            <button
+                                                key={tab}
+                                                onClick={() => setActiveTab(tab)}
+                                                className={`px-6 py-3 rounded-lg font-semibold transition transform hover:scale-105 ${
+                                                    activeTab === tab
+                                                        ? 'bg-blue-600 text-white shadow-lg'
+                                                        : 'text-gray-700 hover:bg-gray-100'
+                                                }`}
+                                            >
+                                                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Dashboard Tab */}
+                                {activeTab === 'dashboard' && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                                        <div className="gradient-bg rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition professional-card">
+                                            <div className="text-4xl mb-2">👥</div>
+                                            <div className="text-3xl font-bold">{participants.length}</div>
+                                            <div className="text-sm opacity-90">Families</div>
+                                        </div>
+                                        <div className="gradient-bg-2 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition professional-card">
+                                            <div className="text-4xl mb-2">🧑‍🤝‍🧑</div>
+                                            <div className="text-3xl font-bold">{totalHeads}</div>
+                                            <div className="text-sm opacity-90">Total Heads</div>
+                                        </div>
+                                        <div className="gradient-bg-3 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition professional-card">
+                                            <div className="text-4xl mb-2">💰</div>
+                                            <div className="text-3xl font-bold">{currency.symbol}{totalExpenses.toFixed(2)}</div>
+                                            <div className="text-sm opacity-90">Total Expenses</div>
+                                        </div>
+                                        <div className="gradient-bg-4 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition professional-card">
+                                            <div className="text-4xl mb-2">💵</div>
+                                            <div className="text-3xl font-bold">{currency.symbol}{costPerHead.toFixed(2)}</div>
+                                            <div className="text-sm opacity-90">Cost Per Head</div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {activeTab === 'dashboard' && (
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                        {/* Recent Expenses */}
+                                        <div className="glass-effect rounded-xl shadow-lg p-6 border border-gray-200">
+                                            <h3 className="text-2xl font-bold text-gray-800 mb-4">Recent Expenses</h3>
+                                            {expenses.length === 0 ? (
+                                                <p className="text-gray-500 text-center py-8">No expenses yet</p>
+                                            ) : (
+                                                <div className="space-y-3">
+                                                    {expenses.slice(-5).reverse().map(expense => (
+                                                        <div key={expense.id} className="bg-white rounded-lg p-4 shadow border border-gray-100">
+                                                            <div className="flex justify-between items-start">
+                                                                <div>
+                                                                    <div className="font-semibold text-gray-800">{expense.description}</div>
+                                                                    <div className="text-sm text-gray-600">Paid by {expense.paidBy}</div>
+                                                                    <div className="text-xs text-gray-500">{expense.splitType === 'perHead' ? 'Split per head' : 'Split per family'}</div>
+                                                                </div>
+                                                                <div className="text-lg font-bold text-blue-600">{currency.symbol}{expense.amount.toFixed(2)}</div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Participants Summary */}
+                                        <div className="glass-effect rounded-xl shadow-lg p-6 border border-gray-200">
+                                            <h3 className="text-2xl font-bold text-gray-800 mb-4">Participants</h3>
+                                            {participants.length === 0 ? (
+                                                <p className="text-gray-500 text-center py-8">No participants yet</p>
+                                            ) : (
+                                                <div className="space-y-3">
+                                                    {participants.map(participant => (
+                                                        <div key={participant.id} className="bg-white rounded-lg p-4 shadow border border-gray-100">
+                                                            <div className="flex justify-between items-center">
+                                                                <div>
+                                                                    <div className="font-semibold text-gray-800">{participant.name}</div>
+                                                                    <div className="text-sm text-gray-600">{participant.familyMembers} member{participant.familyMembers > 1 ? 's' : ''}</div>
+                                                                </div>
+                                                                <div className="text-right">
+                                                                    <div className="text-sm text-gray-600">Per Head: {currency.symbol}{costPerHead.toFixed(2)}</div>
+                                                                    <div className="text-lg font-bold text-blue-600">{currency.symbol}{(costPerHead * participant.familyMembers).toFixed(2)}</div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Participants Tab */}
+                                {activeTab === 'participants' && (
+                                    <div className="glass-effect rounded-xl shadow-lg p-6 border border-gray-200">
+                                        <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                                            <span className="text-blue-600">👥</span> Manage Participants
+                                        </h2>
+                                        
+                                        {/* Add Participant Form */}
+                                        <div className="bg-blue-50 rounded-xl p-6 mb-6 border border-blue-100">
+                                            <h3 className="text-xl font-semibold text-gray-800 mb-4">Add New Participant</h3>
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <input
+                                                    type="text"
+                                                    placeholder="Participant Name"
+                                                    value={participantName}
+                                                    onChange={(e) => setParticipantName(e.target.value)}
+                                                    className="px-4 py-3 rounded-lg border-2 border-blue-200 focus:border-blue-500 outline-none"
+                                                />
+                                                <input
+                                                    type="number"
+                                                    placeholder="Family Members"
+                                                    min="1"
+                                                    value={familyMembers}
+                                                    onChange={(e) => setFamilyMembers(e.target.value)}
+                                                    className="px-4 py-3 rounded-lg border-2 border-blue-200 focus:border-blue-500 outline-none"
+                                                />
+                                                <button
+                                                    onClick={addParticipant}
+                                                    className="gradient-bg text-white px-6 py-3 rounded-lg font-semibold hover:shadow-lg transition transform hover:scale-105"
+                                                >
+                                                    Add Participant
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Participants List */}
+                                        <div className="space-y-4">
+                                            {participants.length === 0 ? (
+                                                <p className="text-gray-500 text-center py-12">No participants added yet. Add your first participant above!</p>
+                                            ) : (
+                                                participants.map(participant => (
+                                                    <div key={participant.id} className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition border border-gray-200">
+                                                        <div className="flex justify-between items-center">
+                                                            <div className="flex items-center gap-4">
+                                                                <div className="w-16 h-16 rounded-full gradient-bg flex items-center justify-center text-white text-2xl font-bold">
+                                                                    {participant.name.charAt(0)}
+                                                                </div>
+                                                                <div>
+                                                                    <h4 className="text-xl font-bold text-gray-800">{participant.name}</h4>
+                                                                    <p className="text-gray-600">{participant.familyMembers} family member{participant.familyMembers > 1 ? 's' : ''}</p>
+                                                                </div>
+                                                            </div>
+                                                            <button
+                                                                onClick={() => removeParticipant(participant.id)}
+                                                                className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition"
+                                                            >
+                                                                Remove
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Expenses Tab */}
+                                {activeTab === 'expenses' && (
+                                    <div className="glass-effect rounded-xl shadow-lg p-6 border border-gray-200">
+                                        <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                                            <span className="text-green-600">💰</span> Manage Expenses
+                                        </h2>
+                                        
+                                        {/* Add Expense Form */}
+                                        <div className="bg-green-50 rounded-xl p-6 mb-6 border border-green-100">
+                                            <h3 className="text-xl font-semibold text-gray-800 mb-4">Add New Expense</h3>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                                <input
+                                                    type="text"
+                                                    placeholder="Expense Description"
+                                                    value={expenseDescription}
+                                                    onChange={(e) => setExpenseDescription(e.target.value)}
+                                                    className="px-4 py-3 rounded-lg border-2 border-green-200 focus:border-green-500 outline-none"
+                                                />
+                                                <input
+                                                    type="number"
+                                                    placeholder={`Amount (${currency.symbol})`}
+                                                    step="0.01"
+                                                    value={expenseAmount}
+                                                    onChange={(e) => setExpenseAmount(e.target.value)}
+                                                    className="px-4 py-3 rounded-lg border-2 border-green-200 focus:border-green-500 outline-none"
+                                                />
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <select
+                                                    value={expensePaidBy}
+                                                    onChange={(e) => setExpensePaidBy(e.target.value)}
+                                                    className="px-4 py-3 rounded-lg border-2 border-green-200 focus:border-green-500 outline-none"
+                                                >
+                                                    <option value="">Who Paid?</option>
+                                                    {participants.map(p => (
+                                                        <option key={p.id} value={p.name}>{p.name}</option>
+                                                    ))}
+                                                </select>
+                                                <select
+                                                    value={splitType}
+                                                    onChange={(e) => setSplitType(e.target.value)}
+                                                    className="px-4 py-3 rounded-lg border-2 border-green-200 focus:border-green-500 outline-none"
+                                                >
+                                                    <option value="perHead">Split Per Head</option>
+                                                    <option value="perFamily">Split Per Family</option>
+                                                </select>
+                                                <button
+                                                    onClick={addExpense}
+                                                    className="gradient-bg-3 text-white px-6 py-3 rounded-lg font-semibold hover:shadow-lg transition transform hover:scale-105"
+                                                >
+                                                    Add Expense
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Expenses List */}
+                                        <div className="space-y-4">
+                                            {expenses.length === 0 ? (
+                                                <p className="text-gray-500 text-center py-12">No expenses added yet. Add your first expense above!</p>
+                                            ) : (
+                                                expenses.map(expense => (
+                                                    <div key={expense.id} className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition border border-gray-200">
+                                                        <div className="flex justify-between items-start">
+                                                            <div className="flex-1">
+                                                                <h4 className="text-xl font-bold text-gray-800 mb-2">{expense.description}</h4>
+                                                                <div className="flex gap-4 text-sm text-gray-600">
+                                                                    <span>💳 Paid by: <strong>{expense.paidBy}</strong></span>
+                                                                    <span>📊 Split: <strong>{expense.splitType === 'perHead' ? 'Per Head' : 'Per Family'}</strong></span>
+                                                                    <span>📅 {new Date(expense.date).toLocaleDateString()}</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex items-center gap-4">
+                                                                <div className="text-2xl font-bold text-green-600">{currency.symbol}{expense.amount.toFixed(2)}</div>
+                                                                <button
+                                                                    onClick={() => removeExpense(expense.id)}
+                                                                    className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition"
+                                                                >
+                                                                    Delete
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+
+                                        {/* Expense Summary */}
+                                        {expenses.length > 0 && (
+                                            <div className="mt-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border border-green-100">
+                                                <h3 className="text-xl font-semibold text-gray-800 mb-4">Expense Summary</h3>
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                    <div className="bg-white rounded-lg p-4">
+                                                        <div className="text-sm text-gray-600">Total Expenses</div>
+                                                        <div className="text-2xl font-bold text-gray-800">{currency.symbol}{totalExpenses.toFixed(2)}</div>
+                                                    </div>
+                                                    <div className="bg-white rounded-lg p-4">
+                                                        <div className="text-sm text-gray-600">Cost Per Head</div>
+                                                        <div className="text-2xl font-bold text-gray-800">{currency.symbol}{costPerHead.toFixed(2)}</div>
+                                                    </div>
+                                                    <div className="bg-white rounded-lg p-4">
+                                                        <div className="text-sm text-gray-600">Cost Per Family</div>
+                                                        <div className="text-2xl font-bold text-gray-800">{currency.symbol}{costPerFamily.toFixed(2)}</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Settlements Tab */}
+                                {activeTab === 'settlements' && (
+                                    <div className="glass-effect rounded-xl shadow-lg p-6 border border-gray-200">
+                                        <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                                            <span className="text-purple-600">🤝</span> Expense Settlements
+                                        </h2>
+                                        
+                                        {participants.length === 0 || expenses.length === 0 ? (
+                                            <div className="text-center py-12">
+                                                <div className="text-6xl mb-4">📊</div>
+                                                <p className="text-gray-500 text-lg">Add participants and expenses to see settlements</p>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                {/* Individual Balances */}
+                                                <div className="mb-8">
+                                                    <h3 className="text-xl font-semibold text-gray-800 mb-4">Individual Balances</h3>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                        {participants.map(participant => {
+                                                            const paid = expenses
+                                                                .filter(e => e.paidBy === participant.name)
+                                                                .reduce((sum, e) => sum + e.amount, 0);
+                                                            
+                                                            const share = expenses.reduce((sum, expense) => {
+                                                                const totalHeads = participants.reduce((s, p) => s + p.familyMembers, 0);
+                                                                const totalFamilies = participants.length;
+                                                                const sharePerUnit = expense.splitType === 'perHead' 
+                                                                    ? expense.amount / totalHeads 
+                                                                    : expense.amount / totalFamilies;
+                                                                return sum + (expense.splitType === 'perHead' 
+                                                                    ? sharePerUnit * participant.familyMembers 
+                                                                    : sharePerUnit);
+                                                            }, 0);
+                                                            
+                                                            const balance = paid - share;
+                                                            const perHeadCost = costPerHead;
+                                                            const totalShareForFamily = perHeadCost * participant.familyMembers;
+                                                            
+                                                            return (
+                                                                <div key={participant.id} className={`rounded-lg p-4 shadow-md border-2 ${balance > 0 ? 'bg-green-50 border-green-300' : balance < 0 ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-300'}`}>
+                                                                    <div className="flex items-center gap-2 mb-3">
+                                                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 text-white flex items-center justify-center font-bold text-lg">
+                                                                            {participant.name.charAt(0)}
+                                                                        </div>
+                                                                        <div className="flex-1">
+                                                                            <div className="font-bold text-gray-800">{participant.name}</div>
+                                                                            <div className="text-xs text-gray-600">{participant.familyMembers} member{participant.familyMembers > 1 ? 's' : ''}</div>
+                                                                        </div>
+                                                                    </div>
+                                                                    
+                                                                    <div className="bg-white bg-opacity-70 rounded-md p-3 mb-2 text-sm">
+                                                                        <div className="flex justify-between mb-1">
+                                                                            <span className="text-gray-600">Per Head:</span>
+                                                                            <span className="font-semibold">{currency.symbol}{perHeadCost.toFixed(2)}</span>
+                                                                        </div>
+                                                                        <div className="flex justify-between mb-1">
+                                                                            <span className="text-gray-600">Members:</span>
+                                                                            <span className="font-semibold">× {participant.familyMembers}</span>
+                                                                        </div>
+                                                                        <div className="flex justify-between pt-2 border-t border-gray-300">
+                                                                            <span className="text-gray-700 font-semibold">Total Share:</span>
+                                                                            <span className="font-bold text-gray-800">{currency.symbol}{totalShareForFamily.toFixed(2)}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                    
+                                                                    <div className="space-y-1 text-xs">
+                                                                        <div className="flex justify-between">
+                                                                            <span className="text-gray-600">Paid:</span>
+                                                                            <span className="font-semibold text-gray-800">{currency.symbol}{paid.toFixed(2)}</span>
+                                                                        </div>
+                                                                        <div className="flex justify-between pb-2 border-b border-dashed border-gray-300">
+                                                                            <span className="text-gray-600">Share:</span>
+                                                                            <span className="font-semibold text-gray-800">{currency.symbol}{share.toFixed(2)}</span>
+                                                                        </div>
+                                                                        <div className="flex justify-between items-center pt-2">
+                                                                            <span className={`font-bold text-sm ${balance > 0 ? 'text-green-700' : balance < 0 ? 'text-red-700' : 'text-gray-700'}`}>
+                                                                                {balance > 0 ? '✅ Receive:' : balance < 0 ? '❌ Pay:' : '✓ Settled:'}
+                                                                            </span>
+                                                                            <span className={`text-lg font-bold ${balance > 0 ? 'text-green-600' : balance < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                                                                                {currency.symbol}{Math.abs(balance).toFixed(2)}
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+
+                                                {/* Settlement Transactions */}
+                                                <div>
+                                                    <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-4 mb-6">
+                                                        <h3 className="text-xl font-bold text-white text-center">💸 Settlement Transactions</h3>
+                                                        <p className="text-blue-100 text-sm text-center mt-1">Who needs to pay whom to settle all expenses</p>
+                                                    </div>
+                                                    
+                                                    {settlements.length === 0 ? (
+                                                        <div className="bg-green-100 rounded-xl p-8 text-center border-2 border-green-300">
+                                                            <div className="text-5xl mb-3">✅</div>
+                                                            <p className="text-green-800 font-bold text-xl">All Settled!</p>
+                                                            <p className="text-green-700 mt-2">No payments needed - everyone is even!</p>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="space-y-4">
+                                                            {settlements.map((settlement, index) => (
+                                                                <div key={index} className="settlement-card bg-white rounded-xl p-6 shadow-lg border-2 border-blue-200 hover:border-blue-400">
+                                                                    {/* Transaction Header */}
+                                                                    <div className="flex items-center justify-between mb-4">
+                                                                        <div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">
+                                                                            {index + 1}
+                                                                        </div>
+                                                                        <div className="bg-green-500 text-white px-4 py-1.5 rounded-full font-bold text-lg shadow-md">
+                                                                            {currency.symbol}{settlement.amount.toFixed(2)}
+                                                                        </div>
+                                                                    </div>
+                                                                    
+                                                                    {/* Transaction Flow */}
+                                                                    <div className="grid grid-cols-3 gap-4 items-center">
+                                                                        {/* FROM */}
+                                                                        <div className="bg-red-50 rounded-lg p-4 border-2 border-red-200">
+                                                                            <div className="flex items-center gap-3">
+                                                                                <div className="w-12 h-12 rounded-full bg-red-500 text-white flex items-center justify-center font-bold text-xl flex-shrink-0">
+                                                                                    {settlement.from.charAt(0).toUpperCase()}
+                                                                                </div>
+                                                                                <div className="min-w-0">
+                                                                                    <div className="text-xs text-red-600 uppercase font-bold tracking-wide">From</div>
+                                                                                    <div className="font-bold text-gray-900 text-sm truncate">{settlement.from}</div>
+                                                                                    <div className="text-xs text-red-700">(Payer)</div>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                        
+                                                                        {/* ARROW */}
+                                                                        <div className="flex flex-col items-center">
+                                                                            <div className="bg-blue-600 text-white rounded-lg px-4 py-2 font-bold text-sm shadow-lg">
+                                                                                PAYS →
+                                                                            </div>
+                                                                        </div>
+                                                                        
+                                                                        {/* TO */}
+                                                                        <div className="bg-green-50 rounded-lg p-4 border-2 border-green-200">
+                                                                            <div className="flex items-center gap-3">
+                                                                                <div className="w-12 h-12 rounded-full bg-green-500 text-white flex items-center justify-center font-bold text-xl flex-shrink-0">
+                                                                                    {settlement.to.charAt(0).toUpperCase()}
+                                                                                </div>
+                                                                                <div className="min-w-0">
+                                                                                    <div className="text-xs text-green-600 uppercase font-bold tracking-wide">To</div>
+                                                                                    <div className="font-bold text-gray-900 text-sm truncate">{settlement.to}</div>
+                                                                                    <div className="text-xs text-green-700">(Receiver)</div>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    
+                                                                    {/* Summary Text */}
+                                                                    <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                                                        <p className="text-center text-sm text-gray-700">
+                                                                            <span className="font-bold text-red-600">{settlement.from}</span>
+                                                                            {' '}should pay{' '}
+                                                                            <span className="font-bold text-blue-600">{currency.symbol}{settlement.amount.toFixed(2)}</span>
+                                                                            {' '}to{' '}
+                                                                            <span className="font-bold text-green-600">{settlement.to}</span>
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+                            </>
+                        )}
+
+                        {/* Trip History */}
+                        {trips.length > 0 && (
+                            <div className="glass-effect rounded-xl shadow-lg p-6 mt-6 border border-gray-200">
+                                <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                                    <span className="text-blue-600">📚</span> Trip History
+                                </h2>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {trips.map(trip => {
+                                        const tripTotal = (trip.expenses || []).reduce((sum, e) => sum + e.amount, 0);
+                                        const tripParticipants = (trip.participants || []).length;
+                                        
+                                        return (
+                                            <div 
+                                                key={trip.id} 
+                                                className={`rounded-xl p-6 shadow-lg cursor-pointer transition hover:shadow-xl ${
+                                                    currentTrip?.id === trip.id ? 'bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-500' : 'bg-white border border-gray-200'
+                                                }`}
+                                                onClick={() => switchTrip(trip)}
+                                            >
+                                                <div className="flex justify-between items-start mb-3">
+                                                    <h3 className="font-bold text-gray-800 text-lg">{trip.name}</h3>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            deleteTrip(trip.id);
+                                                        }}
+                                                        className="text-red-500 hover:text-red-700 text-sm"
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                </div>
+                                                <div className="space-y-2 text-sm text-gray-600">
+                                                    <div>📅 {new Date(trip.date).toLocaleDateString()}</div>
+                                                    <div>👥 {tripParticipants} participants</div>
+                                                    <div className="text-lg font-bold text-blue-600">💰 {currency.symbol}{tripTotal.toFixed(2)}</div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        // Main App Component
+        const App = () => {
+            const [currentUser, setCurrentUser] = useState(null);
+
+            useEffect(() => {
+                // Check if user is already logged in
+                const user = localStorage.getItem('currentUser');
+                if (user) {
+                    setCurrentUser(JSON.parse(user));
+                }
+            }, []);
+
+            const handleLogin = (user) => {
+                setCurrentUser(user);
+            };
+
+            const handleLogout = () => {
+                if (confirm('Are you sure you want to logout?')) {
+                    localStorage.removeItem('currentUser');
+                    setCurrentUser(null);
+                }
+            };
+
+            if (!currentUser) {
+                return <AuthPage onLogin={handleLogin} />;
+            }
+
+            return <PicnicTripManager currentUser={currentUser} onLogout={handleLogout} />;
+        };
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
